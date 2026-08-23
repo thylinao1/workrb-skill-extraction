@@ -823,7 +823,7 @@ def build_stage1(cfg):
     41% of the test set) are short-phrase normalisation, while only 1 of 4 val tasks is. Stage 1
     had no normalisation-shaped supervision at all before this."""
     # Vectorised on purpose: this table is 138,260 rows and row-at-a-time iteration over an HF
-    # dataset is the slowest thing in the phase for no reason.
+    # dataset would otherwise be the slowest step in the phase.
     syn = load_dataset("TechWolf/Synthetic-ESCO-skill-sentences", split="train").to_pandas()
     gi = syn["skill"].astype(str).str.strip().map(title2idx)
     ok = gi.notna()
@@ -1010,7 +1010,8 @@ def run_ce_model(cfg):
         for t in TEST_TASKS:
             # per-task gate: phase() only checks time at START (threshold 0.6), so an
             # optimistic estimate lets a phase start that cannot finish, and it then fails near the end. Stopping
-            # cleanly here leaves a truthful manifest instead of a dead multi-hour phase.
+            # cleanly here leaves an accurate manifest rather than a phase that runs for
+    # hours and produces nothing.
             need = len(Q[("test", t)]["txt"]) * tk / pps(key, "infer", cfg["prior_infer_pps"])
             if DEADLINE - time.time() < need * 1.15:
                 print(f"  [stop] no time for test task {t}; model {key} test scoring "

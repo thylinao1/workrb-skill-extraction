@@ -128,7 +128,7 @@ CFG = dict(key=CE_KEY, hf="Qwen/Qwen3-Reranker-4B",
            s1_syn=80000, s1_desc=14000,                     # model-A/C sized stage 1
            s2_samples=16, s2_docs=24, s2_epochs=2,          # model-A graded density
            prior_train_pps=float(os.environ.get("WORKRB_Q_TRAIN_PPS", "40.0")),
-           # conservative infer prior until a measured rate replaces it ():
+           # conservative infer prior until a measured rate replaces it:
            prior_infer_pps=float(os.environ.get("WORKRB_Q_INFER_PPS", "150.0")),
            test_K=1000, test_members=("full",))
 if os.environ.get("WORKRB_S2_SAMPLES"):
@@ -466,7 +466,7 @@ def build_model():
         CFG["hf"], torch_dtype=torch.float32,      # fp32 master weights; bf16 via autocast
         attn_implementation="sdpa",                # (classic AMP -- makes the parity gate real)
         output_loading_info=True)
-    # Silent-reinit guard (): any missing key that is not weight-tied means part
+    # Silent-reinit guard: any missing key that is not weight-tied means part
     # of the network was randomly initialized -- the exact bug class this design forbids.
     tied = set(getattr(causal, "_tied_weights_keys", None) or [])
     reinit = [k for k in load_info.get("missing_keys", []) if k not in tied]
@@ -553,8 +553,8 @@ def lambda_ndcg2pp_loss(scores, labels, k=None, sigma=1.0, eps=1e-10, mu=10.0):
     mean reduction over valid pairs -- the exact v6 training loss, applied to a dense
     (batch, n_docs) score matrix. Padded docs (unused here: rows are fixed 15/24 docs)
     are marked with float('-inf') labels, as in the original. Verified bit-identical
-    (values AND grads) to the installed sentence-transformers () and to 6e-8
-    against allRank master ()."""
+    (values and gradients) to the installed sentence-transformers and to 6e-8
+    against the reference allRank implementation."""
     device = scores.device
     B, N = scores.shape
     finite = torch.isfinite(labels)
@@ -594,7 +594,7 @@ def lambda_ndcg2pp_loss(scores, labels, k=None, sigma=1.0, eps=1e-10, mu=10.0):
     return -torch.mean(masked)
 
 
-INFER = {"bs": INFER_BS}     # inference batch; halved on OOM, reduction persists (draft 2)
+INFER = {"bs": INFER_BS}     # inference batch; halved on OOM, reduction persists
 
 
 @torch.no_grad()
@@ -787,7 +787,7 @@ def clear_ckpt(tag):
 def ce_score(model, qtexts, cands, tag, part_name=None):
     """v6 ce_score semantics: per-query scoring, non-finite refusal, progress with eta,
     and the SLOWEST observed rate kept (SkillNorm-last bias rule). part_name enables
-    mid-task resume via .part files (draft 2) -- used for the long test tasks."""
+    mid-task resume via .part files -- used for the long test tasks."""
     out = np.zeros(cands.shape, np.float32)
     start = 0
     if part_name:
@@ -834,7 +834,7 @@ def build_stage1(cfg):
     41% of the test set) are short-phrase normalisation, while only 1 of 4 val tasks is. Stage 1
     had no normalisation-shaped supervision at all before this."""
     # Vectorised on purpose: this table is 138,260 rows and row-at-a-time iteration over an HF
-    # dataset is the slowest thing in the phase for no reason.
+    # dataset would otherwise be the slowest step in the phase.
     syn = load_dataset("TechWolf/Synthetic-ESCO-skill-sentences", split="train").to_pandas()
     gi = syn["skill"].astype(str).str.strip().map(title2idx)
     ok = gi.notna()
@@ -979,7 +979,7 @@ def folds_oof():
                 oof[t][folds[t][fo]] = load_np(parts[t])
             print(f"  [reuse] fold {fo} parts", flush=True)
             continue
-        # Fold-model persistence (draft 2): a crash between training and scoring must
+        # Fold-model persistence: a crash between training and scoring must
         # not cost a retrain -- reload the trained fold state if it exists.
         fold_final = f"{RUN}-ce{CE_KEY}-fold{fo}-final.pt"
         ds2 = None
@@ -1034,7 +1034,7 @@ def folds_oof():
           f"v6 A bge-base 0.7327 (all CE-alone)", flush=True)
     if not SMOKE and cm < 0.7044:
         print("  WARNING: below v5's 278M bge-base; a 4B model earning less than a "
-              "14x-smaller one is a red flag -- inspect before spending test GPU time",
+              "14x-smaller one warrants inspection before spending test GPU time",
               flush=True)
     print(f"  {'='*68}", flush=True)
     save_json(f"{RUN}_ce{CE_KEY}_alone.json", {"macro": cm, "base": bm, "per_task": ce_per})
@@ -1075,7 +1075,8 @@ def full_and_test():
             continue
         # per-task gate: phase() only checks time at START (threshold 0.6), so an
         # optimistic estimate lets a phase start that cannot finish, and it then fails near the end. Stopping
-        # cleanly here leaves a truthful manifest instead of a dead multi-hour phase.
+        # cleanly here leaves an accurate manifest rather than a phase that runs for
+    # hours and produces nothing.
         need = len(Q[("test", t)]["txt"]) * tk / pps(CE_KEY, "infer", CFG["prior_infer_pps"])
         if DEADLINE - time.time() < need * 1.15:
             print(f"  [stop] no time for test task {t}; model {CE_KEY} test scoring "
