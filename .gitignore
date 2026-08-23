@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# artefacts the pipeline writes
+*.npy
+*.pt
+*.bin
+*.safetensors
+*.zip
+*.log
+data/
+out-*/
+runs/
+submission*.json
+
+.DS_Store
+.ipynb_checkpoints/

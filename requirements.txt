@@ -1,0 +1,18 @@
+# Third-party packages the pipeline imports. Versions are unpinned because the
+# runs spanned several environments; pin them before attempting a reproduction.
+numpy
+scikit-learn
+lightgbm
+torch
+transformers
+datasets
+sentence-transformers
+peft
+rank-bm25
+rapidfuzz
+
+# The benchmark library and the challenge scaffolding are published by the
+# challenge organisers and are not on PyPI under these names. Install them from
+# their own repositories.
+#   workrb
+#   workrb_challenge
